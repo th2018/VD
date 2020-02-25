@@ -1,0 +1,89 @@
+---
+title: "VD"
+output: html_document
+---
+
+```{r}
+library("XML")
+#install.packages("R.utils")
+library(R.utils)
+library(plotly)
+library(rgl)
+```
+
+```{r}
+setwd("C:/Users/gis/Documents/TAO/Noise/20200204")
+for (f in list.files("C:/Users/gis/Documents/TAO/Noise/20200204",pattern = "*.gz$"))
+{
+#  untar(f)
+  gunzip(f, remove=FALSE)
+}
+
+
+getVDfolder<-list.files("C:/Users/gis/Documents/TAO/Noise/20200204",pattern = "*.xml$"
+                        )
+getVDfolder
+
+```
+
+#from list to df
+#the first half hour of the day
+#分區內各車流偵測器之平均佔有率(AvgOcc)
+#分區內各車流偵測器之總和流量(TotalVol)
+```{r}
+setwd("C:/Users/gis/Documents/TAO/Noise/20200204")
+vd1<-xmlParse(list.files("C:/Users/gis/Documents/TAO/Noise/20200204")[1] )
+vd1_1<-xmlToList(vd1)
+ExchangeTime<-unlist(vd1_1$ExchangeTime )
+ExchangeTime
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+df0<- data.frame(vd1_1_list2[[1]])
+df0$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+df0$TotalVol<-as.numeric(as.character(df0$TotalVol))
+for (i in c(2:length(vd1_1_list2))) {
+#  print(i)
+vd1_1_list2[[i]]
+df<- data.frame(vd1_1_list2[[i]])
+df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+df$TotalVol<-as.numeric(as.character(df$TotalVol))
+df0<-rbind(df0,df)
+}
+df0$L0= 42.2 +10*log10(df0$TotalVol*2)
+write.csv(df0,file="C:/Users/gis/Documents/TAO/Noise/20200204.csv")
+```
+
+```{r}
+d=seq(10,12010,by=100)
+h=0.5
+d_p<-((d+3.5)^2+h^2) ^0.5
+delta_d<--10*log10(d_p/13.5)
+d_p
+delta_d
+
+delta_d<--10*log10((((d+3.5)^2+h^2) ^0.5) /13.5)
+
+plot(d,delta_d,type = "l")
+
+d=10
+h=seq(0.5,90,by=1)
+delta_d<--10*log10((((d+3.5)^2+h^2) ^0.5) /13.5)
+plot(h,delta_d,type = "l")
+
+d=seq(10,12010,by=100)
+h=seq(0.5,120.5,by=1)
+df<-data.frame(d,h)
+df$delta_d<--10*log10((((df$d+3.5)^2+df$h^2) ^0.5) /13.5)
+  
+#plot_ly(df,x=d,y=h,z=delta_d)
+plot3d(x=df$d,y=df$h,z=df$delta_d, radius = .1,
+  xlab="d", ylab="h", zlab="-dB")
+
+cone <- function(d, h){
+-10*log10(((( d+3.5)^2+ h^2) ^0.5) /13.5)
+}
+
+z<-outer(d,h,  cone)
+persp(d, h, z, theta = 30, phi = 15,
+col = "springgreen",xlab="distance",ylab="height")
+```
+
