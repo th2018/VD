@@ -1,0 +1,198 @@
+
+#load the package
+```{r}
+library("XML")
+```
+
+#list of XMLs
+```{r}
+getVDfolder<-list.files("C:/Users/gis/Desktop/20200112"
+                        #,pattern = "*.xml$"
+                        )
+getVDfolder
+
+```
+
+#the first half hour
+#分區內各車流偵測器之平均佔有率(AvgOcc)
+#分區內各車流偵測器之總和流量(TotalVol)
+```{r}
+setwd("C:/Users/gis/Desktop/20200112")
+vd1<-xmlParse("getVD_2020-01-12-00-30-00.xml")
+vd1_1<-xmlToList(vd1)
+ExchangeTime<-unlist(vd1_1$ExchangeTime )
+ExchangeTime
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+df0<- data.frame(vd1_1_list2[[1]])
+df0$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+for (i in c(2:length(vd1_1_list2))) {
+#  print(i)
+vd1_1_list2[[i]]
+df<- data.frame(vd1_1_list2[[i]])
+df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+df0<-rbind(df0,df)
+}
+df0
+```
+
+
+```{r}
+setwd("C:/Users/gis/Desktop/20200112")
+for (t in getVDfolder[-1]) {
+  print(t)
+  
+vd1 <-xmlParse(t)
+
+vd1_1 <- xmlToList(vd1)
+
+ExchangeTime<-unlist(vd1_1$ExchangeTime )
+
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+
+df1<- data.frame(vd1_1_list2[[1]])
+
+df1$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+
+for (i in c(2:length(vd1_1_list2))) {
+
+  
+vd1_1_list2[[i]]
+  
+df<- data.frame(vd1_1_list2[[i]])
+
+df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+
+df1<-rbind(df1,df)
+}
+df0<-rbind(df0,df1)
+}
+```
+
+```{r}
+df0$AvgSpd<-as.numeric(as.character(df0$AvgSpd))
+save(df0, file =paste("C:/Users/gis/Documents/TAO/Noise/","20200112",".Rdata",sep = "") )
+```
+
+```{r}
+max(df0$AvgSpd)
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)+1*sd(df0$AvgSpd)),]$SectionName )
+
+Z0120C0<-df0[df0$SectionName=="市高往東  中華承德",]
+plot(Z0120C0$ExchangeTime,Z0120C0$AvgSpd,ylim = c(33,74),main ="市高往東  中華承德" )
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)-1*sd(df0$AvgSpd)),]$SectionName )
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgSpd,ylim = c(33,74),main ="辛亥路    辛亥隧道-萬美街")
+
+```
+
+
+```{r}
+max(df0$AvgSpd)
+
+df0[df0$AvgSpd>(mean(df0$AvgSpd)+2*sd(df0$AvgSpd)),]$SectionName 
+
+fast<-df0[df0$SectionName=="信快往北  文山隧道",]
+plot(fast$ExchangeTime,fast$AvgSpd
+     ,ylim = c(33,100)
+     ,main ="信快往北  文山隧道" 
+     ,ylab="AvgSpd"
+     ,xlab="ExchangeTime")
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)-2*sd(df0$AvgSpd)),]$SectionName )
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgSpd,ylim = c(33,100),main ="辛亥路    辛亥隧道-萬美街"
+     ,ylab="AvgSpd"    ,xlab="ExchangeTime")
+
+fast<-df0[df0$SectionName=="信快往北  文山隧道",]
+plot(fast$ExchangeTime,fast$AvgOcc 
+ ,ylim = c(0,350)
+     ,main ="信快往北  文山隧道" 
+     ,ylab="AvgOcc"
+     ,xlab="ExchangeTime")
+
+
+
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgOcc
+,ylim = c(0,350)
+     ,main ="辛亥路    辛亥隧道-萬美街"
+     ,ylab="AvgOcc"    ,xlab="ExchangeTime")
+
+```
+
+
+```{r}
+file.rename("C:/Users/gis/Desktop/getVD","C:/Users/gis/Desktop/getVD_20")
+
+getVDfolder2<-getVDfolder[nchar(USGS_cc$USGS)==8,]
+
+
+```
+
+
+```{r}
+#Sys.getlocale(category ="UTF-8")
+
+vd1 <-xmlParse("C:/Users/gis/Desktop/getVD/getVD_2020-01-13-03-00-00.xml"
+         #      ,encoding = "UTF-8"
+               )
+getEncoding(vd1)
+vd1_1 <- xmlToList(vd1)
+
+#vd1_1 <- content(vd1, as="text", encoding="UTF-8")
+#vd1_1
+
+```
+
+```{r}
+vd1_1_list<-as.list(vd1_1[["CenterName"]])
+vd1_1_list1<-as.list(vd1_1$ExchangeTime )
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+vd1_1_list2_1<-as.list(vd1_1$SectionDataSet$SectionData )
+vd1_1_list2_1_1<-as.list(vd1_1$SectionDataSet$SectionData$SectionId )
+```
+
+```{r}
+ExchangeTime<-unlist(vd1_1_list1)
+```
+
+
+```{r}
+df1<- data.frame(vd1_1_list2[[1]])
+df1$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+for (i in c(2:length(vd1_1_list2))) {
+#  print(i)
+  vd1_1_list2[[i]]
+ df<- data.frame(vd1_1_list2[[i]])
+ df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+ df1<-rbind(df1,df)
+}
+#length(vd1_1_list2)
+write.csv(df1,file = paste("C:/Users/gis/Documents/TAO/Noise/vd/",as.character(as.POSIXct(ExchangeTime,format="%Y/%m/%d")),"_",format(as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S"),format ="%H"),".csv",sep = ""))
+```
+
+
+```{r}
+vd1_1_list2ul<-unlist(vd1_1_list2)
+
+```
+
+
+```{r}
+unlist(vd1_1_list2_1)
+```
+
+
+```{r}
+unlist(vd1_1_list2_1_1)
+```
+
+
+
+
+
+
+
+
