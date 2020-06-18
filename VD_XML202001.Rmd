@@ -1,0 +1,422 @@
+
+#load the package
+```{r}
+library("XML")
+#install.packages("R.utils")
+library(R.utils)
+library(plotly)
+library(rgl)
+library("foreign")
+library("readODS")
+library("gdata")
+library(readxl)
+```
+
+#.gz -> .xml
+```{r}
+setwd("D:/tao/VD_R/taipei_20191212_14")
+for (f in list.files("D:/tao/VD_R/taipei_20191212_14",pattern = "*.gz$"))
+{
+#  untar(f)
+  gunzip(f, remove=FALSE)
+}
+
+getVDfolder<-list.files("D:/tao/VD_R/taipei_201912_14"
+                        ,pattern = "*.xml$")
+getVDfolder
+
+```
+
+#the first half hour
+#分區內各車流偵測器之平均佔有率(AvgOcc)
+#分區內各車流偵測器之總和流量(TotalVol)
+```{r}
+setwd("D:/tao/VD_R/taipei_202001")
+vd1<-xmlParse("getVD_2020-01-02-00-00-00.xml")    #       generates an R structure representing the XML/HTML tree
+vd1_1<-xmlToList(vd1)
+ExchangeTime<-unlist(vd1_1$ExchangeTime )
+ExchangeTime
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+df0<- data.frame(vd1_1_list2[[1]])
+df0$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+for (i in c(2:length(vd1_1_list2))) {
+vd1_1_list2[[i]]
+df<- data.frame(vd1_1_list2[[i]])
+df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+df0<-rbind(df0,df)
+}
+df0
+```
+
+#Add later hours to the first hour
+```{r}
+setwd("D:/tao/VD_R/taipei_202001")
+for (t in getVDfolder[-1]) #list of xml
+  {
+  print(t)
+  
+vd1 <-xmlParse(t)
+
+vd1_1 <- xmlToList(vd1)
+
+ExchangeTime<-unlist(vd1_1$ExchangeTime )
+
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+
+df1<- data.frame(vd1_1_list2[[1]])
+
+df1$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+
+for (i in c(2:length(vd1_1_list2))) {
+
+  
+vd1_1_list2[[i]]
+  
+df<- data.frame(vd1_1_list2[[i]])
+
+df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+
+df1<-rbind(df1,df)
+}
+df0<-rbind(df0,df1)
+}
+df0
+save(df0,file="D:/tao/VD_R/VDtaipei_202001.Rdata")
+```
+
+#2020-01-07 08:00
+```{r}
+df0<-df0[df0$ExchangeTime>as.POSIXct("2020-01-07 07:56",format="%Y-%m-%d %H:%M") & df0$ExchangeTime<as.POSIXct("2020-01-07 08:01",format="%Y-%m-%d %H:%M"),]
+ispeed<-read.dbf("D:\\tao\\TestData\\ispeed_se_0107_0800_1m_to_VD_rmNA.dbf")
+ispeed
+df0
+ispeed_df0<-merge(ispeed,df0,by.x="SectionId",by.y= "SectionId")
+ct_sp<-read.csv('D:\\tao\\TestData\\ispeed_se_0107_0800.csv')
+ct_sp8<-ct_sp[ct_sp$time=="2020-01-07 08:00:00",]
+ispeed_df0_sp8<-merge(ispeed_df0,ct_sp8,by=c("start_lon",  "end_lat") )
+plot(ispeed_df0_sp8$AvgSpd.x,ispeed_df0_sp8$speed)
+```
+
+#2020-01-07 08:00 & 08:30
+```{r}
+load("D:/tao/VD_R/VDtaipei_202001.Rdata")
+df0<-df0[df0$ExchangeTime>as.POSIXct("2020-01-07 07:56",format="%Y-%m-%d %H:%M") & df0$ExchangeTime<as.POSIXct("2020-01-07 08:31",format="%Y-%m-%d %H:%M"),]
+df0$AvgSpd<-as.numeric(as.character(df0$AvgSpd))
+df0$AvgOcc<-as.numeric(as.character(df0$AvgOcc))
+df0$TotalVol <-as.numeric(as.character(df0$TotalVol ))
+
+df0_m<-aggregate(df0[,c( "AvgSpd"        ,"AvgOcc"        ,"TotalVol"        
+                         #,"MOELevel"        ,"StartWgsX"        ,"StartWgsY"        ,"EndWgsX"        ,"EndWgsY"
+                         )],by=list(df0$SectionId),FUN="mean")
+df0_m
+
+# ispeed<-read.dbf("D:\\tao\\TestData\\ispeed_se_0107_0800_1m_to_VD_rmNA.dbf")
+# ispeed
+# df0
+# ispeed_df0<-merge(ispeed,df0,by.x="SectionId",by.y= "SectionId")
+# ct_sp<-read.csv('D:\\tao\\TestData\\ispeed_se_0107_0800.csv')
+# ct_sp8<-ct_sp[ct_sp$time=="2020-01-07 08:00:00",]
+# ispeed_df0_sp8<-merge(ispeed_df0,ct_sp8,by=c("start_lon",  "end_lat") )
+# plot(ispeed_df0_sp8$AvgSpd.x,ispeed_df0_sp8$speed)
+```
+
+
+#direction
+```{r}
+
+df0[c( "MOELevel", "StartWgsX","StartWgsY","EndWgsX","EndWgsY")] <- sapply( df0[c( "MOELevel","StartWgsX","StartWgsY","EndWgsX","EndWgsY")] ,as.character )
+df0[c("MOELevel","StartWgsX","StartWgsY","EndWgsX","EndWgsY")] <- sapply( df0[c("MOELevel","StartWgsX","StartWgsY","EndWgsX","EndWgsY")] ,as.numeric )
+
+df0$north<-df0$StartWgsY-df0$EndWgsY
+#df0[(df0$StartWgsY-df0$EndWgsY)<=0,]<-1
+df0$east<-df0$StartWgsX -df0$EndWgsX
+
+```
+
+#匝道
+```{r}
+df0$exit<-"N"
+df0[grepl("匝道",df0$SectionName),]$exit<-"Y"
+head(df0)
+
+```
+
+
+<!-- ```{r} -->
+<!-- river_east<-df0[grepl("水源快往北",df0$SectionName),] -->
+<!-- river_east$SectionId<-as.character(river_east$SectionId) -->
+<!-- river_east$AvgSpd<-as.numeric(as.character(river_east$AvgSpd)) -->
+<!-- river_east$TotalVol<-as.numeric(as.character(river_east$TotalVol)) -->
+<!-- river_east$sp_vol<-river_east$AvgSpd*river_east$TotalVol -->
+
+<!-- Z4010A0<-river_east[river_east$SectionId=="Z4010A0",] -->
+<!-- Z4020A0<-river_east[river_east$SectionId=="Z4020A0",] -->
+<!-- Z4031A0<-river_east[river_east$SectionId=="Z4031A0",] -->
+<!-- #Z4040H0<-river_east[river_east$SectionId=="Z4040H0",] -->
+<!-- Z4050G0<-river_east[river_east$SectionId=="Z4050G0",] -->
+<!-- #Z4060G0<-river_east[river_east$SectionId=="Z4060G0",] -->
+<!-- Z4080G0<-river_east[river_east$SectionId=="Z4080G0",] -->
+
+<!-- ## -->
+<!-- #plot(Z4010A0$ExchangeTime, Z4010A0$TotalVol,col="orange",ylim = c(0,400)) -->
+<!-- #par(new=T) -->
+<!-- plot(Z4020A0$ExchangeTime, Z4020A0$TotalVol,col="red",ylim = c(0,400),xlab = "Time",ylab = "TotalVol",type="l",main = "水源快往北") -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$ExchangeTime, Z4050G0$TotalVol,ylim = c(0,400),col="green",xlab = "Time",ylab = "TotalVol",type="l") -->
+<!-- #par(new=T) -->
+<!-- #plot(Z4031A0$ExchangeTime, Z4031A0$TotalVol,col="purple",ylim = c(0,400)) -->
+<!-- #par(new=T) -->
+<!-- #plot(Z4080G0$ExchangeTime, Z4080G0$TotalVol,col="green",ylim = c(0,400)) -->
+
+<!-- plot(Z4020A0$ExchangeTime, Z4020A0$AvgSpd ,col="red",ylim = c(0,100),xlab = "Time",ylab = "AvgSpd",type="l",main = "水源快往北") -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$ExchangeTime, Z4050G0$AvgSpd ,ylim = c(0,100),col="green",xlab = "Time",ylab = NA ,type="l") -->
+
+<!-- plot(Z4020A0$ExchangeTime, Z4020A0$AvgSpd *Z4020A0$TotalVol ,col="red",ylim = c(0,10000),xlab = "Time",ylab = "AvgSpd",type="l",main = "水源快往北") -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$ExchangeTime, Z4050G0$AvgSpd * Z4050G0$TotalVol ,ylim = c(0,10000),col="green",xlab = "Time",ylab = NA ,type="l") -->
+
+<!-- ## -->
+
+<!-- plot(Z4020A0$ExchangeTime, Z4020A0$sp_vol ,col="red",ylim = c(0,20000)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$ExchangeTime, Z4050G0$sp_vol ,ylim = c(0,20000)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4060G0$ExchangeTime, Z4060G0$sp_vol,col="purple",ylim = c(0,20000)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4080G0$ExchangeTime, Z4080G0$sp_vol,col="green",ylim = c(0,20000)) -->
+
+<!-- ## -->
+
+
+<!-- plot(Z4020A0$ExchangeTime, Z4020A0$AvgSpd ,col="red",ylim = c(0,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$ExchangeTime, Z4050G0$AvgSpd ,ylim = c(0,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4060G0$ExchangeTime, Z4060G0$AvgSpd ,col="purple",ylim = c(0,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4080G0$ExchangeTime, Z4080G0$AvgSpd ,col="green",ylim = c(0,100)) -->
+
+<!-- ### -->
+<!-- plot(Z4020A0$TotalVol , Z4020A0$AvgSpd ,col="red",ylim = c(20,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4050G0$TotalVol, Z4050G0$AvgSpd ,ylim = c(20,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4060G0$TotalVol, Z4060G0$AvgSpd ,col="purple",ylim = c(20,100)) -->
+<!-- par(new=T) -->
+<!-- plot(Z4080G0$TotalVol, Z4080G0$AvgSpd ,col="green",ylim = c(20,100)) -->
+
+<!-- #### -->
+<!-- #Z4020A0 -->
+
+<!-- ``` -->
+
+
+
+
+#UNIQUE LOC
+```{r}
+df0$AvgSpd<-as.numeric(as.character(df0$AvgSpd))
+
+#sapply(df0, class)
+
+df0_u<-df0[unique(df0$SectionName),
+           #c("SectionId"   , "SectionName",  "AvgSpd"    ,   "AvgOcc"   ,    "TotalVol"  ,   "MOELevel"   ,  "StartWgsX"    ,"StartWgsY",    "EndWgsX","EndWgsY")
+           ]
+
+df0_u[c("SectionId","SectionName" )] <- sapply( df0_u[c("SectionId","SectionName" )] ,as.character )
+
+write.csv(df0_u ,file="D:/tao/VD_R/data/df0_u.csv")
+
+#df0[95<df0$AvgSpd & df0$AvgSpd<100,]
+
+```
+
+```{r}
+#roads<-read.dbf("D:/tao/VD_R/history_VD/taipei_roads.dbf"
+                #, as.is = TRUE
+                #,encoding='UTF-8')
+
+roads<-read_excel( "D:/tao/VD_R/history_VD/taipei_roads.xls")
+#roads<-read.ods("D:/tao/VD_R/history_VD/taipei_roads.ods")
+roads
+
+```
+
+```{r}
+roads$sybstr_road<-substr(roads$`NAME,C,128`, 1, 3 
+                          #, nchar(roads$`NAME,C,128`)-2, nchar(roads$`NAME,C,128` )-1
+                          )
+roads_name_sub<-roads[,c("sybstr_road","NAME,C,128")]
+roads_name_sub_u<-roads_name_sub[!is.na(roads_name_sub$`NAME,C,128`),]
+
+df0_u$sybstr_VD<-substr(df0_u$SectionName, 1, 3 
+                        #, nchar(df0_u$SectionName)-1, nchar(df0_u$SectionName )
+                        )
+df0_u_sub<-df0_u[,c("SectionName","sybstr_VD")]
+
+#roads_name_sub_u[grepl("承德",roads_name_sub_u$`NAME,C,128`),]$sybstr_road<-"承德"
+table(df0_u_sub$sybstr_VD %in% roads_name_sub_u$sybstr_road)
+df0_u_sub[(df0_u_sub$sybstr_VD %in% roads_name_sub_u$sybstr_road),]
+df0_u_sub[!(df0_u_sub$sybstr_VD %in% roads_name_sub_u$sybstr_road),]
+
+colnames(roads_name_sub_u)<-c(colnames(roads_name_sub_u)[1],"name")
+
+write.csv(df0_u_sub ,file="D:/tao/VD_R/df0_u_sub.csv", row.names = FALSE)
+write.csv(roads_name_sub_u ,file="D:/tao/VD_R/roads_name_sub_u.csv", row.names = FALSE)
+
+```
+
+#新生南
+```{r}
+roads_name_sub_u[roads_name_sub_u$sybstr_road=="新生南" ,]
+df0_u_sub[df0_u_sub$sybstr_VD=="新生南",]
+```
+
+
+
+
+
+```{r}
+
+df0[c("AvgOcc","TotalVol")] <- sapply( df0[c("AvgOcc","TotalVol")] ,as.character )
+df0[c("AvgOcc","TotalVol")] <- sapply( df0[c("AvgOcc","TotalVol")] ,as.numeric )
+
+head(df0)
+Z0111C0_2020_02_18_23_55<-df0[1,]
+write.csv(Z0111C0_2020_02_18_23_55,file = "D:/tao/VD_R/data/Z0111C0_2020_02_18_23_55.csv")
+```
+
+```{r}
+write.csv(df0[df0$ExchangeTime=="2020-02-19 12:56:14" | df0$ExchangeTime =="2020-02-19 09:55:25",] ,file = "D:/tao/VD_R/data/df0_2020_02_19_12_56.csv")
+```
+
+
+
+
+
+
+
+```{r}
+max(df0$AvgSpd)
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)+1*sd(df0$AvgSpd)),]$SectionName )
+
+Z0120C0<-df0[df0$SectionName=="市高往東  中華承德",]
+plot(Z0120C0$ExchangeTime,Z0120C0$AvgSpd,ylim = c(33,74),main ="市高往東  中華承德" )
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)-1*sd(df0$AvgSpd)),]$SectionName )
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgSpd,ylim = c(33,74),main ="辛亥路    辛亥隧道-萬美街")
+
+```
+
+
+```{r}
+max(df0$AvgSpd)
+
+df0[df0$AvgSpd>(mean(df0$AvgSpd)+2*sd(df0$AvgSpd)),]$SectionName 
+
+fast<-df0[df0$SectionName=="信快往北  文山隧道",]
+plot(fast$ExchangeTime,fast$AvgSpd
+     ,ylim = c(33,100)
+     ,main ="信快往北  文山隧道" 
+     ,ylab="AvgSpd"
+     ,xlab="ExchangeTime")
+
+(df0[df0$AvgSpd>(mean(df0$AvgSpd)-2*sd(df0$AvgSpd)),]$SectionName )
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgSpd,ylim = c(33,100),main ="辛亥路    辛亥隧道-萬美街"
+     ,ylab="AvgSpd"    ,xlab="ExchangeTime")
+
+fast<-df0[df0$SectionName=="信快往北  文山隧道",]
+plot(fast$ExchangeTime,fast$AvgOcc 
+ ,ylim = c(0,350)
+     ,main ="信快往北  文山隧道" 
+     ,ylab="AvgOcc"
+     ,xlab="ExchangeTime")
+
+
+
+ZB5PL60<-df0[df0$SectionName=="辛亥路    辛亥隧道-萬美街",]
+plot(ZB5PL60$ExchangeTime,ZB5PL60$AvgOcc
+,ylim = c(0,350)
+     ,main ="辛亥路    辛亥隧道-萬美街"
+     ,ylab="AvgOcc"    ,xlab="ExchangeTime")
+
+```
+
+
+```{r}
+file.rename("C:/Users/gis/Desktop/getVD","C:/Users/gis/Desktop/getVD_20")
+
+getVDfolder2<-getVDfolder[nchar(USGS_cc$USGS)==8,]
+
+
+```
+
+
+```{r}
+#Sys.getlocale(category ="UTF-8")
+
+vd1 <-xmlParse("C:/Users/gis/Desktop/getVD/getVD_2020-01-13-03-00-00.xml"
+         #      ,encoding = "UTF-8"
+               )
+getEncoding(vd1)
+vd1_1 <- xmlToList(vd1)
+
+#vd1_1 <- content(vd1, as="text", encoding="UTF-8")
+#vd1_1
+
+```
+
+```{r}
+vd1_1_list<-as.list(vd1_1[["CenterName"]])
+vd1_1_list1<-as.list(vd1_1$ExchangeTime )
+vd1_1_list2<-as.list(vd1_1$SectionDataSet )
+vd1_1_list2_1<-as.list(vd1_1$SectionDataSet$SectionData )
+vd1_1_list2_1_1<-as.list(vd1_1$SectionDataSet$SectionData$SectionId )
+```
+
+```{r}
+ExchangeTime<-unlist(vd1_1_list1)
+```
+
+
+```{r}
+df1<- data.frame(vd1_1_list2[[1]])
+df1$ExchangeTime<-as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+for (i in c(2:length(vd1_1_list2))) {
+#  print(i)
+  vd1_1_list2[[i]]
+ df<- data.frame(vd1_1_list2[[i]])
+ df$ExchangeTime<- as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S")
+ df1<-rbind(df1,df)
+}
+#length(vd1_1_list2)
+write.csv(df1,file = paste("C:/Users/gis/Documents/TAO/Noise/vd/",as.character(as.POSIXct(ExchangeTime,format="%Y/%m/%d")),"_",format(as.POSIXct(ExchangeTime,format="%Y/%m/%dT%H:%M:%S"),format ="%H"),".csv",sep = ""))
+```
+
+
+```{r}
+vd1_1_list2ul<-unlist(vd1_1_list2)
+
+```
+
+
+```{r}
+unlist(vd1_1_list2_1)
+```
+
+
+```{r}
+unlist(vd1_1_list2_1_1)
+```
+
+
+
+
+
+
+
+
